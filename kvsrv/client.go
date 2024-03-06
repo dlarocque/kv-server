@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"6.5840/labrpc"
+	"github.com/google/uuid"
 )
 
 type Clerk struct {
@@ -35,7 +36,7 @@ func MakeClerk(server *labrpc.ClientEnd) *Clerk {
 // must match the declared types of the RPC handler function's
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) Get(key string) string {
-	args := GetArgs{Key: key}
+	args := GetArgs{Key: key, Id: uuid.New()}
 	reply := GetReply{}
 
 	for !ck.server.Call("KVServer.Get", &args, &reply) {
@@ -53,7 +54,7 @@ func (ck *Clerk) Get(key string) string {
 // must match the declared types of the RPC handler function's
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) PutAppend(key string, value string, op string) string {
-	args := PutAppendArgs{Key: key, Value: value}
+	args := PutAppendArgs{Key: key, Value: value, Id: uuid.New()}
 	reply := PutAppendReply{}
 
 	for !ck.server.Call("KVServer."+op, &args, &reply) {
