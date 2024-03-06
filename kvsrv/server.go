@@ -16,48 +16,53 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
+type Operation struct {
+	idx          int // Monotonically increasing
+	preAppendIdx int
+}
+
 type KVServer struct {
 	mu sync.Mutex
 
-	db            map[string]string
-	getReqs       map[uuid.UUID]GetReply // Table storing request IDs we've received
-	putAppendReqs map[uuid.UUID]PutAppendReply
+	db              map[string]string
+	clerkOperations map[uuid.UUID]Operation
 }
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	kv.mu.Lock()
-	prevReply, ok := kv.getReqs[args.Id]
-	if ok {
-		reply.Value = prevReply.Value
-	} else {
-		reply.Value = kv.db[args.Key]
-		kv.getReqs[args.Id] = *reply
-	}
+	reply.Value = kv.db[args.Key]
 	kv.mu.Unlock()
 }
 
 func (kv *KVServer) Put(args *PutAppendArgs, reply *PutAppendReply) {
 	kv.mu.Lock()
-	prevReply, ok := kv.putAppendReqs[args.Id]
-	if ok {
-		reply.Value = prevReply.Value
+	prev, ok := kv.clerkOperations[args.ClerkID]
+	if ok && args.Idx == prev.idx {
+		reply.Value = ""
 	} else {
 		reply.Value = kv.db[args.Key]
 		kv.db[args.Key] = args.Value
-		kv.putAppendReqs[args.Id] = *reply
+		kv.clerkOperations[args.ClerkID] = Operation{
+			idx:          args.Idx,
+			preAppendIdx: -1,
+		}
 	}
 	kv.mu.Unlock()
 }
 
 func (kv *KVServer) Append(args *PutAppendArgs, reply *PutAppendReply) {
 	kv.mu.Lock()
-	prevReply, ok := kv.putAppendReqs[args.Id]
-	if ok {
-		reply.Value = prevReply.Value
+	prev, ok := kv.clerkOperations[args.ClerkID]
+	if ok && prev.idx == args.Idx {
+		reply.Value = kv.db[args.Key][:prev.preAppendIdx]
 	} else {
 		reply.Value = kv.db[args.Key]
+		preAppendIdx := len(reply.Value)
 		kv.db[args.Key] += args.Value
-		kv.putAppendReqs[args.Id] = *reply
+		kv.clerkOperations[args.ClerkID] = Operation{
+			idx:          args.Idx,
+			preAppendIdx: preAppendIdx,
+		}
 	}
 	kv.mu.Unlock()
 }
@@ -65,7 +70,6 @@ func (kv *KVServer) Append(args *PutAppendArgs, reply *PutAppendReply) {
 func StartKVServer() *KVServer {
 	kv := new(KVServer)
 	kv.db = make(map[string]string)
-	kv.getReqs = make(map[uuid.UUID]GetReply)
-	kv.putAppendReqs = make(map[uuid.UUID]PutAppendReply)
+	kv.clerkOperations = make(map[uuid.UUID]Operation)
 	return kv
 }

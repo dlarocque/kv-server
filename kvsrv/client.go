@@ -9,7 +9,9 @@ import (
 )
 
 type Clerk struct {
-	server *labrpc.ClientEnd
+	server  *labrpc.ClientEnd
+	ID      uuid.UUID
+	currIdx int
 }
 
 func nrand() int64 {
@@ -22,6 +24,7 @@ func nrand() int64 {
 func MakeClerk(server *labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.server = server
+	ck.ID = uuid.New()
 	return ck
 }
 
@@ -36,11 +39,13 @@ func MakeClerk(server *labrpc.ClientEnd) *Clerk {
 // must match the declared types of the RPC handler function's
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) Get(key string) string {
-	args := GetArgs{Key: key, Id: uuid.New()}
+	args := GetArgs{Key: key, ClerkID: ck.ID, Idx: ck.currIdx}
 	reply := GetReply{}
 
 	for !ck.server.Call("KVServer.Get", &args, &reply) {
 	}
+
+	ck.currIdx += 1
 
 	return reply.Value
 }
@@ -54,11 +59,13 @@ func (ck *Clerk) Get(key string) string {
 // must match the declared types of the RPC handler function's
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) PutAppend(key string, value string, op string) string {
-	args := PutAppendArgs{Key: key, Value: value, Id: uuid.New()}
+	args := PutAppendArgs{Key: key, Value: value, ClerkID: ck.ID, Idx: ck.currIdx}
 	reply := PutAppendReply{}
 
 	for !ck.server.Call("KVServer."+op, &args, &reply) {
 	}
+
+	ck.currIdx += 1
 
 	return reply.Value
 }

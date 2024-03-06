@@ -4,9 +4,10 @@ import "github.com/google/uuid"
 
 // Put or Append
 type PutAppendArgs struct {
-	Key   string
-	Value string
-	Id    uuid.UUID
+	Key     string
+	Value   string
+	ClerkID uuid.UUID
+	Idx     int
 }
 
 type PutAppendReply struct {
@@ -14,8 +15,9 @@ type PutAppendReply struct {
 }
 
 type GetArgs struct {
-	Key string
-	Id  uuid.UUID
+	Key     string
+	ClerkID uuid.UUID
+	Idx     int
 }
 
 type GetReply struct {
